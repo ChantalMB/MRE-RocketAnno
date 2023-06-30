@@ -1,17 +1,17 @@
 <script>
     import { X } from 'lucide-svelte';
 
-	export let showModal; // boolean
+	export let showNewModal; // boolean
 
 	let dialog; // HTMLDialogElement
 
-	$: if (dialog && showModal) dialog.showModal();
+	$: if (dialog && showNewModal) dialog.showModal();
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <dialog
 	bind:this={dialog}
-	on:close={() => (showModal = false)}
+	on:close={() => (showNewModal = false)}
 	on:click|self={() => dialog.close()}>
 
 	<div on:click|stopPropagation>

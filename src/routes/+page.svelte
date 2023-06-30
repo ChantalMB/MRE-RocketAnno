@@ -1,9 +1,12 @@
 <script>
-  import Modal from '$lib/Modal.svelte';
-  import { projectData, projectSavePath, dataAdded, projectDataLoaded } from '../stores.js';
+  import LoadModal from '$lib/LoadModal.svelte';
+  import NewModal from '$lib/NewModal.svelte';
+
+  import { projectData, projectSavePath, dataAdded, projectDataLoaded, imgPath } from '../stores.js';
   import { goto } from '$app/navigation';
   
-  let showModal = false;
+  let showLoadModal = false;
+  let showNewModal = false;
 
   const replacer = (key, value) => {
     if (typeof value === 'string') {
@@ -16,6 +19,27 @@
     }
     return value;
   };
+
+  function getFilePath(fp) {
+    // TO DO: better way to split file paths? in case user puts slash in file name...
+    let sep;
+    if (window.navigator.userAgent.indexOf("Windows") != -1) {
+      sep = "\\";
+    } else {
+      sep = "/";
+    }
+
+    fp = fp.split(sep);
+    fp.pop();
+
+    let final_fp = "file://" + fp.join(sep) + sep;
+    return(final_fp)
+  }
+
+  const onDirSelected=(e)=> {
+    $imgPath = getFilePath(e.target.files[0]['path']);
+    console.log($imgPath)
+  }
 
   const onLoadProject=(e)=> {
     let reader = new FileReader();
@@ -44,18 +68,22 @@
 
 <main>
   <h1 class="text-primary">RocketAnnotator</h1>
-  <button>
-    <a href="/workspace">New Project</a>
+  <button on:click={() => (showNewModal = true)}>
+    New Project
   </button>
-  <button on:click={() => (showModal = true)}>
+  <button on:click={() => (showLoadModal = true)}>
     Load Project
   </button>
 </main>
 
-<Modal bind:showModal>
+<LoadModal bind:showLoadModal>
 	<h2 slot="header">
-		Select Project File
+		Select Image folder and Project File
 	</h2>
+
+  <input type="file" webkitdirectory on:change={(e)=>onDirSelected(e)}>
+  
+  <hr/>
 
   <input type="file" accept=".json" on:change={(e)=>onLoadProject(e)} />
   
@@ -66,7 +94,23 @@
     <!-- <a href="/workspace">Enter Workspace</a> -->
   </button>
 
-</Modal>
+</LoadModal>
+
+<NewModal bind:showNewModal>
+	<h2 slot="header">
+		Select Image Folder
+	</h2>
+
+  <input type="file" webkitdirectory on:change={(e)=>onDirSelected(e)}>
+  
+  <hr/>
+  
+  <button on:click={()=> (goto('/workspace'))}>
+    Enter Workspace
+    <!-- <a href="/workspace">Enter Workspace</a> -->
+  </button>
+
+</NewModal>
 
 <style lang="scss">
   

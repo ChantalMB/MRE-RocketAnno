@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 
 export const projectData = writable([]);
 export const projectSavePath = writable("");
+export const imgPath = writable("");
 export const dataAdded = writable(false);
 
 export const projectDataLoaded = writable(false);

@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
 
-  import { projectData, projectSavePath, dataAdded, projectDataLoaded } from '../../stores.js';
+  import { projectData, projectSavePath, dataAdded, projectDataLoaded, imgPath } from '../../stores.js';
 
   import JSZip from 'jszip';
   import ExifReader from 'exifreader';
@@ -119,20 +119,22 @@
       $projectSavePath = getFilePath(e.target.files[0]['path']);
     }
 
+    // file:///Users/cbrou/Desktop/108901436.3-anno.jpg
     for (let i = 0; i < e.target.files.length; i++) {
 			let image = e.target.files[i];
+      let joinedImgPath = $imgPath + image['name'];
+
       let reader = new FileReader();
       reader.readAsDataURL(image);
 
       reader.onload = e => {
                             ExifReader.load(e.target.result).then(function (tags) {
-                              setFileData(image['name'], e.target.result, tags);
+                              setFileData(image['name'], joinedImgPath, tags);
                             });
                             
                             };
       
     }
-    
   }
 
   function setFileData(filename, filepath, exifTags) {
@@ -786,9 +788,28 @@
     return value;
   };
 
+  setInterval(() => {
+    if ($projectData.length > 0) {
+      saveProject()
+      console.log("saved project!")
+    }
+  }, 430000)
+
+
   async function saveProject() {
     let req = {}
-    req[$projectSavePath] = $projectData;
+
+    let projectDataForSave = $projectData;
+    for (let i = 0; i < projectDataForSave.length; i++) {
+      let rmLocalPath = projectDataForSave[i]["filepath"].split('/').pop();
+      projectDataForSave[i]["filepath"] = rmLocalPath;
+      for (let j = 0; j < projectDataForSave[i]["shpInfo"].length; j++) {
+        let rmLocalSourcePath = projectDataForSave[i]["shpInfo"][j]["target"]["source"].split('/').pop();
+        projectDataForSave[i]["shpInfo"][j]["target"]["source"] = rmLocalSourcePath;
+      }
+    }
+
+    req[$projectSavePath] = projectDataForSave;
 
     const response = await fetch('/api/workspace', {
         method: 'POST',
@@ -804,7 +825,21 @@
 
   $: if ($projectDataLoaded && anno != undefined) {
     console.log("reached")
+    for (let i = 0; i < $projectData.length; i++) {
+      let updateFp = $imgPath + $projectData[i]["name"];
+      $projectData[i]["filepath"] = updateFp;
+      if ($projectData[i]["shpInfo"].length > 0) {
+        for (let j = 0; j < $projectData[i]["shpInfo"].length; j++) {
+          $projectData[i]["shpInfo"][j]["target"]["source"] = updateFp;
+        }
+      }
+    }
+
     restoreAnnos();
+    if ($projectData[index]["annotations"].length > 0){
+      annoCols = Object.keys($projectData[index]["annotations"][0])
+    }
+    
     $projectDataLoaded = false;
   }
 
@@ -818,23 +853,27 @@
 
   function getFormattedMetadata(metadata) {
     console.log(metadata)
-    let metadataFormatted;
+    let metadataFormatted = {};
     if (metadata["UserComment"] !== undefined) {
-      if (typeof metadata["UserComment"]["value"] == "string") {
-        metadataFormatted = JSON.parse(metadata["UserComment"]["value"]);
+      if (typeof metadata["UserComment"]["description"] == "string") {
+        metadataFormatted = JSON.parse(metadata["UserComment"]["description"]);
       } else {
-        metadataFormatted = metadata["UserComment"]["value"];
-      }
-    }
-    
-    for (let i = 0; i < Object.entries(metadata).length; i++) {
-      if (Object.entries(metadata)[i][0] !== "UserComment") {
-        metadataFormatted[Object.entries(metadata)[i][0]] = Object.entries(metadata)[i][1]["value"]
+        metadataFormatted = metadata["UserComment"]["description"];
       }
     }
 
+    console.log(typeof metadataFormatted)
+    
+    for (let i = 0; i < Object.entries(metadata).length; i++) {
+      if (Object.entries(metadata)[i][0] !== "UserComment") {
+        metadataFormatted[Object.entries(metadata)[i][0]] = Object.entries(metadata)[i][1]["description"]
+      }
+    }
+
+    console.log(Object.entries(metadataFormatted))
     return(Object.entries(metadataFormatted))
   }
+
 
 </script>
 
