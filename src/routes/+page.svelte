@@ -1,12 +1,16 @@
 <script>
   import LoadModal from '$lib/LoadModal.svelte';
   import NewModal from '$lib/NewModal.svelte';
+  import icon from '$lib/assets/RA-icon-no-circle.svg';
 
-  import { projectData, projectSavePath, dataAdded, projectDataLoaded, imgPath } from '../stores.js';
+  import { disableWorkspace, projectData, projectSavePath, dataAdded, projectDataLoaded, imgPath } from '../stores.js';
   import { goto } from '$app/navigation';
   
   let showLoadModal = false;
   let showNewModal = false;
+
+  let dirSelected = false;
+  let projSelected = false;
 
   const replacer = (key, value) => {
     if (typeof value === 'string') {
@@ -39,6 +43,7 @@
   const onDirSelected=(e)=> {
     $imgPath = getFilePath(e.target.files[0]['path']);
     console.log($imgPath)
+    dirSelected = true;
   }
 
   const onLoadProject=(e)=> {
@@ -50,7 +55,7 @@
       const obj = JSON.parse(json, replacer);
       setProject(Object.keys(obj)[0], Object.values(obj)[0])
     }
-
+    projSelected = true;
   }
 
   function setProject(folderpath, project) {
@@ -60,6 +65,21 @@
     $projectDataLoaded = true;
   }
 
+  $: if (showLoadModal) {
+    if (dirSelected && projSelected) {
+      $disableWorkspace = false;
+      dirSelected = false;
+      projSelected = false;
+    }
+  }
+
+  $: if (showNewModal) {
+    if (dirSelected) {
+      $disableWorkspace = false;
+      dirSelected = false;
+    }
+  }
+
 </script>
 
 <svelte:head>
@@ -67,32 +87,49 @@
 </svelte:head>
 
 <main>
-  <h1 class="text-primary">RocketAnnotator</h1>
-  <button on:click={() => (showNewModal = true)}>
-    New Project
-  </button>
-  <button on:click={() => (showLoadModal = true)}>
-    Load Project
-  </button>
+  <img src={icon} alt="Rocket"/>
+
+  <div class="home-content">
+    <div class="interactive">
+      <h1 class="text-primary">RocketAnnotator</h1>
+      <button on:click={() => (showNewModal = true)}>
+        New Project
+      </button>
+      <button on:click={() => (showLoadModal = true)}>
+        Load Project
+      </button>
+    </div>
+  </div>
 </main>
 
 <LoadModal bind:showLoadModal>
 	<h2 slot="header">
-		Select Image folder and Project File
+		Select Image folder and Project
 	</h2>
 
+  <label> Folder:
   <input type="file" webkitdirectory on:change={(e)=>onDirSelected(e)}>
+  </label>
   
   <hr/>
 
+  <label> Project file:
   <input type="file" accept=".json" on:change={(e)=>onLoadProject(e)} />
-  
+  </label>
+
   <hr/>
-  
+
+  {#if $disableWorkspace}
+  <button class="disabled">
+    Enter Workspace
+    <!-- <a href="/workspace">Enter Workspace</a> -->
+  </button>
+  {:else}
   <button on:click={()=> (goto('/workspace'))}>
     Enter Workspace
     <!-- <a href="/workspace">Enter Workspace</a> -->
   </button>
+  {/if}
 
 </LoadModal>
 
@@ -101,29 +138,56 @@
 		Select Image Folder
 	</h2>
 
-  <input type="file" webkitdirectory on:change={(e)=>onDirSelected(e)}>
-  
+  <label> Folder:
+  <input type="file" class="loading" webkitdirectory on:change={(e)=>onDirSelected(e)}>
+  </label>
   <hr/>
-  
+
+  {#if $disableWorkspace}
+  <button class="disabled">
+    Enter Workspace
+    <!-- <a href="/workspace">Enter Workspace</a> -->
+  </button>
+  {:else}
   <button on:click={()=> (goto('/workspace'))}>
     Enter Workspace
     <!-- <a href="/workspace">Enter Workspace</a> -->
   </button>
+  {/if}
 
 </NewModal>
 
 <style lang="scss">
-  
   main {
+    height: 100vh;
     text-align: center;
+    position: relative; 
+  }
+
+  .home-content{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  main img {
+    width: 59vmin;
+    height: 59vmin;  
+  }
+
+  .home-content .interactive {
+    position: absolute; 
+    left: 50%;                        /* horizontal alignment */
+    top: 55%;                         /* vertical alignment */
+    transform: translate(-50%, -50%);
+    
   }
 
   h1 {
     text-transform: uppercase;
     font-size: 4rem;
-    font-weight: 100;
+    font-weight: 150;
     line-height: 1.1;
-    margin: 4rem auto;
     max-width: 14rem;
   }
 
@@ -133,14 +197,13 @@
     }
   }
 
-  a {
-      text-decoration: none;
-      color: #FFFFFF;
-    }
-
-  button:hover a {
-    text-decoration: none;
-    color: #FF4742;
+  button.disabled,
+  button.disabled:hover,
+  button.disabled:active {
+    border: 1px solid #999999;
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
   }
 
   button {

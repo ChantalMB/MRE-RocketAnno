@@ -6,11 +6,11 @@ export async function POST({ request }) {
     console.log("hack-ed the mainframe")
     const { req } = await request.json();
 
-    let fp = Object.keys(req)[0] + "ur_project.json"
+    let fp = Object.keys(req)[0] + "RocketAnno_project.json"
     console.log(fp)
     fs.writeJson(fp, req, err => {
         if (err) return console.error(err)
-        console.log('success!')
+        console.log('save successful!')
      })
 
     return json(req);

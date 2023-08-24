@@ -9,6 +9,7 @@
   import { projectData, projectSavePath, dataAdded, projectDataLoaded, imgPath } from '../../stores.js';
 
   import JSZip from 'jszip';
+  import JSZipUtils from 'jszip-utils'
   import ExifReader from 'exifreader';
   import area from 'area-polygon'
   import { saveAs } from 'file-saver';
@@ -30,7 +31,11 @@
           Check,
           X,
           Download,
-          FolderEdit } from 'lucide-svelte';
+          FolderEdit,
+          ArrowBigUp,
+          MousePointerClick,
+          ArrowLeftSquare,
+          ArrowRightSquare } from 'lucide-svelte';
 
   // import OpenSeadragon from 'openseadragon';
   // import * as Annotorious from '@recogito/annotorious-openseadragon';
@@ -64,7 +69,7 @@
     OpenSeadragon = await import('openseadragon');
     Annotorious = (await import('@recogito/annotorious-openseadragon')).default;
     SelectorPack = (await import('@recogito/annotorious-selector-pack')).default;
-    ShpLbl = (await import('@recogito/annotorious-shape-labels')).default;
+    // ShpLbl = (await import('@recogito/annotorious-shape-labels')).default;
 
     viewer = new OpenSeadragon.Viewer({
       id: 'openseadragon',
@@ -75,7 +80,7 @@
     });
 
     const config = {
-        formatter: ShpLbl(),
+        // formatter: ShpLbl(),
         allowEmpty: true,
         widgets: []
     }; 
@@ -422,7 +427,7 @@
 
   }
 
-  function toCOCO() {
+  async function toCOCO() {
     let saveCOCO = {
                   'info': {},
                   'licenses': [],
@@ -449,13 +454,21 @@
     let uniqueCates = new Set(); 
     let annoCount = 0;
     for (let i = 0; i < $projectData.length; i++) {
-      let img = new Image();
-      img.src = $projectData[i]['filepath'];
+      
+      let dimension;
+      try {
+        dimension = await getImageDimensions($projectData[i]["filepath"]);
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(dimension)
+      let img_w = dimension['width']
+      let img_h = dimension['height']
                           
       saveCOCO['images'].push({
                             "id": Number(i), 
-                            "width": img.width, 
-                            "height": img.height, 
+                            "width": img_w, 
+                            "height": img_h, 
                             "file_name": $projectData[i]['filepath'], 
                             "license": 1, 
                             "date_captured": getDate(),
@@ -537,7 +550,7 @@
           annoCount += 1;
 
         }
-
+        correspondingImgs = [...correspondingImgs, $projectData[i]['name']]
       }
     }
 
@@ -563,10 +576,12 @@
 
     let annotatedData = zip.folder("annotations");
     annotatedData.file('COCO_annotation_data.json', JSON.stringify(saveCOCO))
+
     // TO DO: get images to export with data
-    // for (let i = 0; i < $projectData.length; i++) {
-    //   // annotatedData.file($projectData[i]['name'], create_img_file($projectData[i]['filepath']));
-    // }
+    for (let i = 0; i < $projectData.length; i++) {
+      let content = $imgPath + correspondingImgs[i];
+      annotatedData.file("images/" + annoFileName + ".png", urlToPromise(content), {binary: true})
+    }
 
     zip.generateAsync({type:"blob"}).then(function(content) {
         saveAs(content, "project_data_COCO.zip");
@@ -574,16 +589,38 @@
     
   }
 
+  function getImageDimensions(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = function() {
+        resolve({ width: img.width, height: img.height });
+      };
+      img.onerror = function() {
+        reject(new Error('Failed to load image: ' + url));
+      };
+      img.src = url;
+    });
+  }
 
-  function toYOLO() {
+
+  async function toYOLO() {
     let uniqueCates = new Set();
     let annoTxtFiles = {}
     let correspondingImgs = []
     for (let i = 0; i < $projectData.length; i++) {
       console.log($projectData[i])
       let listOfAnnos = []
-      let img_w = $projectData[i]['exifInfo']['Image Width']['value'];
-      let img_h = $projectData[i]['exifInfo']['Image Height']['value'];
+      
+      let dimension;
+      try {
+        dimension = await getImageDimensions($projectData[i]["filepath"]);
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(dimension)
+      let img_w = dimension['width']
+      let img_h = dimension['height']
+
 
       for (let j = 0; j < $projectData[i]['annotations'].length; j++) {
         uniqueCates.add($projectData[i]['annotations'][j]['object_category'])
@@ -608,7 +645,7 @@
         listOfAnnos.push(bbox_obj)
       }
       annoTxtFiles[$projectData[i]["name"]] = listOfAnnos
-      correspondingImgs = [...correspondingImgs, $projectData[i]['filepath']]
+      correspondingImgs = [...correspondingImgs, $projectData[i]['name']]
     }
 
     let uniqueCatesArr = Array.from(uniqueCates)
@@ -623,30 +660,41 @@
     annotatedData.file('data.yaml', datayaml)
 
     for (let i = 0; i < Object.entries(annoTxtFiles).length; i++) {
-      let annoFileName = Object.entries(annoTxtFiles)[i][0]
-      annoFileName = annoFileName.substring(0, annoFileName.lastIndexOf("."))
-      console.log(annoFileName)
+      if (Object.entries(annoTxtFiles)[i][1].length > 0) {
+        let annoFileName = Object.entries(annoTxtFiles)[i][0]
+        annoFileName = annoFileName.substring(0, annoFileName.lastIndexOf("."))
+        console.log("THING: ")
+        console.log(Object.entries(annoTxtFiles)[i][1])
 
-      let annoFile = ""
-      for (let j = 0; j < Object.entries(annoTxtFiles)[i][1].length; j++) {
-        let classNum = uniqueCatesArr.indexOf(Object.entries(annoTxtFiles)[i][1][j]['class']);
-        console.log(Object.entries(annoTxtFiles)[i][1][j])
+        let annoFile = ""
+        for (let j = 0; j < Object.entries(annoTxtFiles)[i][1].length; j++) {
+          let classNum = uniqueCatesArr.indexOf(Object.entries(annoTxtFiles)[i][1][j]['class']);
+          annoFile += `${classNum} ${Object.entries(annoTxtFiles)[i][1][j]['xc']} ${Object.entries(annoTxtFiles)[i][1][j]['yc']} ${Object.entries(annoTxtFiles)[i][1][j]['w']} ${Object.entries(annoTxtFiles)[i][1][j]['h']}\n`
 
-        annoFile += `${classNum} ${Object.entries(annoTxtFiles)[i][1][j]['xc']} ${Object.entries(annoTxtFiles)[i][1][j]['yc']} ${Object.entries(annoTxtFiles)[i][1][j]['w']} ${Object.entries(annoTxtFiles)[i][1][j]['h']} \n`
+        }
+        annotatedData.file("annotations/" + annoFileName + '.txt', annoFile)
 
+        let content = $imgPath + correspondingImgs[i];
+        annotatedData.file("images/" + annoFileName + ".png", urlToPromise(content), {binary: true})
       }
-      annotatedData.file("annotations/" + annoFileName + '.txt', annoFile)
-
-      let uri = correspondingImgs[i];
-      let idx = uri.indexOf('base64,') + 'base64,'.length;
-      let content = uri.substring(idx);
-      annotatedData.file("images/" + annoFileName + ".png", content, {base64: true})
     }
 
     zip.generateAsync({type:"blob"}).then(function(content) {
         saveAs(content, "project_data_yolo.zip");
     });             
 
+  }
+
+  function urlToPromise(url) {
+    return new Promise(function(resolve, reject) {
+        JSZipUtils.getBinaryContent(url, function (err, data) {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
   }
 
   function toPascalVOC() { 
@@ -781,13 +829,6 @@
 
   let total;
 
-  const replacer = (key, value) => {
-    if (Array.isArray(value) && (key === 'annotations' || key === 'shpInfo')) {
-      return JSON.stringify(value);
-    }
-    return value;
-  };
-
   setInterval(() => {
     if ($projectData.length > 0) {
       saveProject()
@@ -796,10 +837,19 @@
   }, 430000)
 
 
+  const replacer = (key, value) => {
+    if (Array.isArray(value) && (key === 'annotations' || key === 'shpInfo')) {
+      return JSON.stringify(value);
+    }
+    return value;
+  };
+
+
   async function saveProject() {
     let req = {}
 
-    let projectDataForSave = $projectData;
+    // gross way of cloning variable
+    let projectDataForSave = JSON.parse(JSON.stringify($projectData));
     for (let i = 0; i < projectDataForSave.length; i++) {
       let rmLocalPath = projectDataForSave[i]["filepath"].split('/').pop();
       projectDataForSave[i]["filepath"] = rmLocalPath;
@@ -808,6 +858,9 @@
         projectDataForSave[i]["shpInfo"][j]["target"]["source"] = rmLocalSourcePath;
       }
     }
+
+    console.log($projectData[index])
+
 
     req[$projectSavePath] = projectDataForSave;
 
@@ -820,7 +873,6 @@
     });
 
     total = await response.json(); 
-    console.log(total)
   }
 
   $: if ($projectDataLoaded && anno != undefined) {
@@ -856,13 +908,17 @@
     let metadataFormatted = {};
     if (metadata["UserComment"] !== undefined) {
       if (typeof metadata["UserComment"]["description"] == "string") {
-        metadataFormatted = JSON.parse(metadata["UserComment"]["description"]);
+        try {
+          metadataFormatted = JSON.parse(metadata["UserComment"]["description"]);
+        } catch {
+          // TO DO: figure out how to fix JSON.parse errors in UserComment
+          console.log("problematic: ")
+          console.log(metadata["UserComment"]["description"])
+        }
       } else {
         metadataFormatted = metadata["UserComment"]["description"];
       }
     }
-
-    console.log(typeof metadataFormatted)
     
     for (let i = 0; i < Object.entries(metadata).length; i++) {
       if (Object.entries(metadata)[i][0] !== "UserComment") {
@@ -916,7 +972,7 @@
           {:else if selectedFilter == 'Images without annotations' && img[1]["annotations"].length === 0}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <li class="highlight" on:click={()=> jump_to_img(img)} id="file_list">{img[1]["name"]}</li>
-          {:else if searchTerm.length > 0 && String(img[1]).includes(searchTerm)}
+          {:else if searchTerm.length > 0 && JSON.stringify(img[1]).includes(searchTerm)}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <li class="highlight" on:click={()=> jump_to_img(img)} id="file_list">{img[1]["name"]}</li>
           {:else}
@@ -959,10 +1015,27 @@
         {/each}
       </select>
       <button on:click={() => downloadAs()}><Download size="15"/></button>
+
     </div>
 
     <div class="instructions">
+      <hr />
       <!-- for instructions -->
+      <div id="ks-title">
+        <span>Keyboard Shortcuts</span>
+      </div>
+
+      <table class="ks-table">
+          <tr>
+            <td>Shift + <MousePointerClick size="15"/></td>
+            <td>Draw annotation</td>
+          </tr>
+          <tr>
+            <td><ArrowLeftSquare size="15"/> or <ArrowRightSquare size="15"/></td>
+            <td>Scroll through images</td>
+          </tr>
+      </table>
+
     </div>
 
   </div>
@@ -970,21 +1043,16 @@
   <div class="annotator">
     <div id="openseadragon"></div>
     <div class="anno_buttons"> 
-      <!-- <button class="anno_button" on:click={() => (drawSelectOpen = !drawSelectOpen)}><Brush size="15"/></button> -->
-      <button class="draw_tool" on:click={() => setAnnoShp('rect')}><Square size="15"/></button>
-      <button class="draw_tool" on:click={() => setAnnoShp('polygon')}><Hexagon size="15"/></button>
-      <!-- {#if drawSelectOpen}
-        <div class="draw_tools" transition:slide>
-        </div>
-      {/if} -->
-      <button class="anno_button" bind:this={zoomIn}><ZoomIn size="15"/></button>
-      <button class="anno_button" bind:this={zoomOut}><ZoomOut size="15"/></button>
-      <button class="anno_button" bind:this={reset}><RefreshCcw size="15"/></button>
+      <button class="anno_button" on:click={() => setAnnoShp('rect')}><div id="icon"><Square size="15"/></div></button>
+      <button class="anno_button" on:click={() => setAnnoShp('polygon')}><div id="icon"><Hexagon size="15"/></div></button>
+      <button class="anno_button" bind:this={zoomIn}><div id="icon"><ZoomIn size="15"/></div></button>
+      <button class="anno_button" bind:this={zoomOut}><div id="icon"><ZoomOut size="15"/></div></button>
+      <button class="anno_button" bind:this={reset}><div id="icon"><RefreshCcw size="15"/></div></button>
     </div> 
 
     <div class="page_buttons">
-      <button on:click={prevImg} class="page_button"><ChevronLeft size="15"/></button>
-      <button on:click={nextImg} class="page_button"><ChevronRight size="15"/></button>
+      <button on:click={prevImg} class="page_button"><div id="icon"><ChevronLeft size="15"/></div></button>
+      <button on:click={nextImg} class="page_button"><div id="icon"><ChevronRight size="15"/></div></button>
     </div>
   </div>
 
@@ -1002,7 +1070,7 @@
     {#if $dataAdded}
     <div use:scrollToBottom={$projectData[index]['annotations']} class="panels">
       <div class="panel" id="anno-panel">
-        <table>
+        <table class="anno-table">
           <tr>
             {#each annoCols as col, i}
             {#if i <= 4}
@@ -1045,7 +1113,7 @@
           {/if}
         </table>
         <div class="addCol">
-          <button on:click={() => (addingCol = true)}><Plus /></button>
+          <button on:click={() => (addingCol = true)}><div id="icon"><Plus /></div></button>
         </div>
       </div>
 
@@ -1060,7 +1128,7 @@
     {:else}
     <div class="panels">
       <div class="panel" id="anno-panel">
-        <table>
+        <table class="anno-table">
           <tr>
             {#each annoCols as col, i}
             {#if i <= 4}
@@ -1117,10 +1185,6 @@
     padding: 7px;
   }
 
-  .mod_files span {
-
-  }
-
   .mod_files_buttons {
     float: right;
     align-items: center;
@@ -1146,6 +1210,7 @@
 
   .file_viewer li {
     white-space: nowrap; 
+    overflow: scroll;
     display: block; 
     padding: 0 0.4rem;
     border-left: 0.2rem solid grey; 
@@ -1173,20 +1238,45 @@
     padding: 7px; 
   }
 
-  .export {
+  .export, .instructions {
     position: relative; 
     line-height: 1.3em; 
     margin: 0; 
-    padding: 7px; 
+    padding-left: 7px; 
+    padding-right: 7px;
   }
 
   .export button {
     border: 0px;
     background-color: transparent;
+    margin-right: 5px;
+    float: right;
   }
 
   .export button:hover {
     color: lightblue;
+  }
+
+  .instructions #ks-title {
+    margin-bottom: 15px;
+  }
+
+  .ks-table {
+    font-size: small;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .ks-table tr {
+    border-bottom: 1px solid #ddd;
+    border-top: 1px solid #ddd;
+  }
+
+  .ks-table td {
+    padding: 0px;
+    padding-right: 7px;
+    padding-bottom: 7px;
+    padding-top: 7px;
   }
 
   /* annotation canvas */
@@ -1202,23 +1292,6 @@
   #openseadragon {
     z-index: 1;
     flex: 1;
-  }
-
-  .draw_tools {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .draw_tool {
-    border-radius: 50%;
-    border: 0px;
-    box-shadow: 0 0.3rem 0.5rem #00000080;
-    background-color: white;
-    height: 30px;
-    width: 30px;
-    margin: 5px;
   }
 
   .anno_buttons {
@@ -1239,6 +1312,7 @@
     height: 30px;
     width: 30px;
     margin: 5px;
+    position: relative;
   }
 
   .page_buttons {
@@ -1258,6 +1332,16 @@
     height: 30px;
     width: 30px;
     margin: 5px;
+    position: relative;
+  }
+
+  #icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 50%;
+    transform: translate(-50%, -50%);
+    display: block;
   }
   
   /* data viewer styling */
@@ -1323,14 +1407,14 @@
     border-top: 3px solid black;
   }
 
-  table {
+  .anno-table {
     font-family: arial, sans-serif;
     border-collapse: collapse;
     width: 95%;
     float: left;
   }
 
-  td, th {
+  .anno-table td, .anno-table th {
     border: 1px solid #dddddd;
     text-align: left;
     padding: 8px;
@@ -1385,10 +1469,10 @@
   .rmCol {
     border: 0px;
     background-color: transparent;
-    padding: 0px;
+    padding-left: 3px;
     display: flex;
     align-items: center;
-    float: right;
+    float: left;
   }
 
 

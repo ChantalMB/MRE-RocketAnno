@@ -1,9 +1,16 @@
 <script>
     import { X } from 'lucide-svelte';
+	import { disableWorkspace } from '../stores.js';
+
 
 	export let showNewModal; // boolean
 
 	let dialog; // HTMLDialogElement
+
+	function quit() {
+		dialog.close()
+		$disableWorkspace = true;
+	}
 
 	$: if (dialog && showNewModal) dialog.showModal();
 </script>
@@ -16,7 +23,7 @@
 
 	<div on:click|stopPropagation>
         <!-- svelte-ignore a11y-autofocus -->
-        <button class="quit" autofocus on:click={() => dialog.close()}><X size="17"/></button>
+        <button class="quit" autofocus on:click={() => quit()}><X size="17"/></button>
 		<slot name="header" />
 		<hr />
 		<slot />

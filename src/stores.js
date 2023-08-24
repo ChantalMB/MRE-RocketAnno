@@ -1,5 +1,7 @@
 import { writable } from 'svelte/store';
 
+export const disableWorkspace = writable(true)
+
 export const projectData = writable([]);
 export const projectSavePath = writable("");
 export const imgPath = writable("");

@@ -25,6 +25,7 @@
     "exifreader": "^4.12.1",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
+    "jszip-utils": "^0.1.0",
     "lucide-svelte": "^0.233.0"
   },
   "main": "src/electron.cjs",
@@ -37,7 +38,7 @@
     "build": "vite build"
   },
   "version": "1.0.0",
-  "name": "electron-sveltekit",
+  "name": "RocketAnnotater",
   "type": "module",
-  "description": "Electron and SvelteKit integration"
+  "description": "Humanities-focused image annotation application."
 }
