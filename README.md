@@ -2,6 +2,7 @@
 - MRE Technical Component- App  
 
 - Not only is the name of this app an hommage to the conception of it as a task specific annotator for the [International Space Station Archaeological Project](https://issarchaeology.org/), rockets in popular imagination also embody the concepts surrounding  image annotation that will be discussed in my MRE. While rockets possess immense power and can achieve incredible velocities, the journey to their destination is often marked by a deliberate and gradual progression. Following the lengthy actual construction of the rocket, the launch itself involves a series of carefully orchestrated stages, and once in space, rockets rely on the principles of orbital mechanics, where precise calculations and carefully planned trajectories are necessary to navigate through the vast expanses of the cosmos. These complex maneuvers can take months or even years, depending on the target, requiring patience, meticulous planning, and precise execution. Like rockets, the process of image annotation is often perceived to be a fast process, but to be done with care, requires multiple checks during the annotation process to ensure the resulting model does not cause harm.
+- **For more details on the creation of this application**, see [chapter 4 of my MRE](https://chantalmb.github.io/MRE-MitM-2023/creation-of-an-application-to-capture-the-metadata-of-big-data.html#creation-of-an-application-to-capture-the-metadata-of-big-data).
 
 ## New Project Guide 
 - **To download:** Click the link under "Releases" to the right of this page.
